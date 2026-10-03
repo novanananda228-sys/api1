@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Data Users API</title>
+<style>
+*{box-sizing:border-box}
+body{font-family:Arial,sans-serif;background:#f3f6fb;margin:0;color:#222}
+.container{max-width:1200px;margin:35px auto;padding:0 18px}
+.header{background:#0d6efd;color:white;padding:25px;border-radius:14px;margin-bottom:20px}
+.header h1{margin:0 0 7px}.header p{margin:0;opacity:.9}
+.toolbar{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:15px}
+button,.btn{border:0;border-radius:7px;padding:10px 15px;cursor:pointer;text-decoration:none;font-size:14px}
+.btn-add{background:#198754;color:white}.btn-edit{background:#ffc107;color:#111}.btn-delete{background:#dc3545;color:white}
+.card{background:white;border-radius:12px;box-shadow:0 3px 15px #00000012;overflow:hidden}
+table{width:100%;border-collapse:collapse}
+th{background:#0d6efd;color:white;padding:13px;text-align:left}
+td{padding:12px;border-bottom:1px solid #eee;vertical-align:top}
+tr:hover{background:#f7faff}.center{text-align:center}.actions{white-space:nowrap}
+.loading{text-align:center;padding:25px;color:#0d6efd}
+.modal{display:none;position:fixed;inset:0;background:#0008;align-items:center;justify-content:center;padding:15px}
+.modal.show{display:flex}
+.form-box{background:white;width:100%;max-width:550px;border-radius:13px;padding:24px}
+.form-box h2{margin-top:0}
+label{display:block;margin:12px 0 6px;font-weight:bold}
+input,textarea{width:100%;padding:10px;border:1px solid #ccc;border-radius:7px;font-size:14px}
+textarea{min-height:80px;resize:vertical}
+.form-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+.btn-cancel{background:#6c757d;color:white}
+.btn-save{background:#0d6efd;color:white}
+@media(max-width:750px){
+ table{font-size:12px} th,td{padding:8px}
+ .actions button{display:block;width:100%;margin:3px 0}
+}
+</style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>Data Users JSON API</h1>
+        <p>Data dari database lokal <b>data_api</b></p>
+    </div>
+
+    <div class="toolbar">
+        <h2>Daftar Users</h2>
+        <button class="btn-add" onclick="bukaTambah()">+ Tambah Data</button>
+    </div>
+
+    <div class="card">
+        <table>
+            <thead>
+                <tr>
+                    <th width="70">NO / ID</th>
+                    <th>NAMA</th>
+                    <th>EMAIL</th>
+                    <th>ALAMAT</th>
+                    <th width="180">AKSI</th>
+                </tr>
+            </thead>
+            <tbody id="hasil">
+                <tr><td colspan="5" class="loading">Memuat data...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="modal" id="modal">
+    <div class="form-box">
+        <h2 id="judulForm">Tambah Data</h2>
+        <form id="formData" method="POST">
+            <input type="hidden" id="id" name="id">
+
+            <label>Nama</label>
+            <input type="text" id="name" name="name" required>
+
+            <label>Username</label>
+            <input type="text" id="username" name="username" required>
+
+            <label>Email</label>
+            <input type="email" id="email" name="email" required>
+
+            <label>Alamat</label>
+            <textarea id="address" name="address" required></textarea>
+
+            <div class="form-actions">
+                <button type="button" class="btn-cancel" onclick="tutupModal()">Batal</button>
+                <button type="submit" class="btn-save">Simpan</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+let semuaData = [];
+
+function escapeHtml(text) {
+    return String(text ?? '').replace(/[&<>"']/g, function(m) {
+        return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m];
+    });
+}
+
+function tampilData() {
+    fetch('data_json.php')
+    .then(response => {
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        return response.json();
+    })
+    .then(data => {
+        semuaData = data;
+        let html = '';
+
+        if (data.length === 0) {
+            html = '<tr><td colspan="5" class="loading">Belum ada data.</td></tr>';
+        } else {
+            data.forEach(item => {
+                html += `
+                <tr>
+                    <td class="center">${escapeHtml(item.id)}</td>
+                    <td>${escapeHtml(item.name)}</td>
+                    <td>${escapeHtml(item.email)}</td>
+                    <td>${escapeHtml(item.address)}</td>
+                    <td class="actions">
+                        <button class="btn-edit" onclick="bukaEdit(${item.id})">Edit</button>
+                        <button class="btn-delete" onclick="hapusData(${item.id})">Hapus</button>
+                    </td>
+                </tr>`;
+            });
+        }
+
+        document.getElementById('hasil').innerHTML = html;
+    })
+    .catch(error => {
+        document.getElementById('hasil').innerHTML =
+        `<tr><td colspan="5" style="color:red;text-align:center;padding:25px">
+        Gagal mengambil data JSON. Pastikan Apache, MySQL, dan database sudah aktif.
+        </td></tr>`;
+        console.error(error);
+    });
+}
+
+function bukaTambah() {
+    document.getElementById('judulForm').textContent = 'Tambah Data';
+    document.getElementById('formData').action = 'tambah.php';
+    document.getElementById('formData').reset();
+    document.getElementById('id').value = '';
+    document.getElementById('modal').classList.add('show');
+}
+
+function bukaEdit(id) {
+    const item = semuaData.find(x => Number(x.id) === Number(id));
+    if (!item) return;
+
+    document.getElementById('judulForm').textContent = 'Edit Data';
+    document.getElementById('formData').action = 'edit.php';
+    document.getElementById('id').value = item.id;
+    document.getElementById('name').value = item.name;
+    document.getElementById('username').value = item.username;
+    document.getElementById('email').value = item.email;
+    document.getElementById('address').value = item.address;
+    document.getElementById('modal').classList.add('show');
+}
+
+function tutupModal() {
+    document.getElementById('modal').classList.remove('show');
+}
+
+function hapusData(id) {
+    const item = semuaData.find(x => Number(x.id) === Number(id));
+    if (!item) return;
+
+    if (confirm('Yakin ingin menghapus data ' + item.name + '?')) {
+        window.location.href = 'hapus.php?id=' + encodeURIComponent(id);
+    }
+}
+
+window.onclick = function(e) {
+    if (e.target === document.getElementById('modal')) {
+        tutupModal();
+    }
+}
+
+tampilData();
+</script>
+</body>
+</html>
